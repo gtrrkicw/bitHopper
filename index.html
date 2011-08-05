@@ -55,6 +55,15 @@
 					
 				return 'white';
 			}
+
+			function getHashRate(payload, srv) {
+				if (srv["role"] == "disable")
+				{
+					return " ";
+				}
+				hashRate = srv['hashRate'];
+				return hashRate.toFixed(2);
+			}
 			
 			function getShares(payload, srv) {
 				shares = srv['shares'];
@@ -317,6 +326,7 @@
 					buildTable("#table", data['servers'], data,
 						{
 							'Server': { 'data':getName, 'color':getColor },
+							'Pool<br>Rate<br>(GH/s)': { 'data':getHashRate, 'align':'right' },
 							'Shares': { 'data':getShares, 'align':'right' },
 							'Role': { 'data':getRole },
 							'User&nbsp;Shares<br>Rejects': { 'data':getUserShareRejects, 'align':'right' },

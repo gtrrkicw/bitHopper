@@ -55,6 +55,7 @@ class Pool():
     def setup(self,bitHopper):
         self.bitHopper = bitHopper
         for server in self.servers:
+            self.servers[server]['hashRate'] = 0
             self.servers[server]['shares'] = int(bitHopper.difficulty.get_difficulty())
             self.servers[server]['lag'] = False
             self.servers[server]['api_lag'] = False
@@ -140,16 +141,60 @@ class Pool():
             return
 
         if server['api_method'] == 'json':
-            info = json.loads(response)
-            for value in server['api_key'].split(','):
+            json_resp = json.loads(response)
+
+            # get number of shares
+            if 'shares_key' not in server:
+              round_shares = int(self.bitHopper.difficulty.get_difficulty())
+              self.UpdateShares(args,round_shares)
+              return
+
+            info = json_resp
+            for value in server['shares_key'].split(','):
                 info = info[value]
-            if 'api_strip' in server:
+            if 'shares_strip' in server:
                 strip_char = server['api_strip'][1:-1]
                 info = info.replace(strip_char,'')
             round_shares = int(info)
             if round_shares == None:
-                round_shares = int(bitHopper.difficulty.get_difficulty())
+                round_shares = int(self.bitHopper.difficulty.get_difficulty())
+
             self.UpdateShares(args,round_shares)
+
+            # get GH/sec
+            info = json_resp
+            server['hashRateMode'] = 'calc'
+            if 'ghash_key' in server:
+              for value in server['ghash_key'].split(','):
+                  info = info[value]
+              if 'hash_strip' in server:
+                  strip_char = server['hash_strip'][1:-1]
+                  info = info.replace(strip_char,'')
+              ghash = float(info)
+              server['hashRate'] = ghash
+              server['hashRateMode'] = 'api'
+
+            # or get MH/sec
+            elif 'mhash_key' in server:
+              for value in server['mhash_key'].split(','):
+                  info = info[value]
+              if 'hash_strip' in server:
+                  strip_char = server['hash_strip'][1:-1]
+                  info = info.replace(strip_char,'')
+              ghash = float(info) / 1000
+              server['hashRate'] = ghash
+              server['hashRateMode'] = 'api'
+
+            # or get H/sec
+            elif 'hash_key' in server:
+              for value in server['hash_key'].split(','):
+                  info = info[value]
+              if 'hash_strip' in server:
+                  strip_char = server['hash_strip'][1:-1]
+                  info = info.replace(strip_char,'')
+              ghash = float(info) / 1000000000
+              server['hashRate'] = ghash
+              server['hashRateMode'] = 'api'
 
         elif server['api_method'] == 'json_ec':
             info = json.loads(response[:response.find('}')+1])
@@ -157,11 +202,11 @@ class Pool():
                 info = info[value]
             round_shares = int(info)
             if round_shares == None:
-                round_shares = int(bitHopper.difficulty.get_difficulty())
+                round_shares = int(self.bitHopper.difficulty.get_difficulty())
             self.UpdateShares(args,round_shares)
 
         elif server['api_method'] == 're':
-            output = re.search(server['api_key'],response)
+            output = re.search(server['shares_key'],response)
             if 'api_group' in server:
                 output = output.group(int(server['api_group']))
             else:
@@ -173,13 +218,42 @@ class Pool():
                     output = output[s:]
                 else:
                     output = output[s:int(e)]
-            if 'api_strip' in server:
-                strip_str = server['api_strip'][1:-1]
+            if 'shares_strip' in server:
+                strip_str = server['shares_strip'][1:-1]
                 output = output.replace(strip_str,'')
             round_shares = int(output)
             if round_shares == None:
-                round_shares = int(bitHopper.difficulty.get_difficulty())
+                round_shares = int(self.bitHopper.difficulty.get_difficulty())
             self.UpdateShares(args,round_shares)
+
+            server['hashRateMode'] = 'calc'
+            if 'hash_key' in server:
+              output = re.search(server['hash_key'],response).group(1)
+              if 'hash_strip' in server:
+                strip_str = server['hash_strip'][1:-1]
+                output = output.replace(strip_str, '')
+              ghash = float(output) / 1000000000
+              server['hashRate'] = ghash
+              server['hashRateMode'] = 'api'
+
+            elif 'mhash_key' in server:
+              output = re.search(server['mhash_key'],response).group(1)
+              if 'hash_strip' in server:
+                strip_str = server['hash_strip'][1:-1]
+                output = output.replace(strip_str, '')
+              ghash = float(output) / 1000
+              server['hashRate'] = ghash
+              server['hashRateMode'] = 'api'
+
+            elif 'ghash_key' in server:
+              output = re.search(server['ghash_key'],response).group(1)
+              if 'hash_strip' in server:
+                strip_str = server['hash_strip'][1:-1]
+                output = output.replace(strip_str, '')
+              ghash = float(output)
+              server['hashRate'] = ghash
+              server['hashRateMode'] = 'api'
+
         else:
             self.bitHopper.log_msg('Unrecognized api method: ' + str(server))
 
